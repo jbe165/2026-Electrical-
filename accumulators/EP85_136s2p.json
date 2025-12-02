@@ -1,0 +1,14 @@
+{
+    "nominal_voltage": "530.4",
+    "max_voltage": "600",
+    "min_voltage": "340",
+    "min_voltage_ams_fault": "380.8",
+    "total_capacity_wh": "7080",
+    "max_current": "186",
+    "max_power": "80",
+    "total_mass": "25.84",
+    "num_series": "136",
+    "num_parallel": "2",
+    "internal_resistance": "0.4352",
+    "num_laps": "18"
+}

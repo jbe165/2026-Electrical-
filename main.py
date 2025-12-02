@@ -53,24 +53,54 @@ class Accumulator:
         
     def update(self, power_draw_w, timestep):
         """Update accumulator state with thermal and electrical dynamics"""
-        # Energy consumption with multiplier
-        energy_delta_j = power_draw_w * timestep * self.energy_consumption_multiplier
+        # Calculate initial pack voltage based on SoC
+        soc = self.get_soc_percent() / 100.0
+        open_circuit_voltage = self.min_voltage + (self.max_voltage - self.min_voltage) * soc
+        
+        # Calculate desired current (I = P/V)
+        desired_current = power_draw_w / open_circuit_voltage if open_circuit_voltage > 0 else 0
+        
+        # HARD LIMIT: Enforce max current during discharge
+        if desired_current > self.max_current:
+            actual_current = self.max_current
+            actual_power = actual_current * open_circuit_voltage
+        else:
+            actual_current = desired_current
+            actual_power = power_draw_w
+        
+        # For regenerative braking (negative power), check voltage doesn't exceed max
+        if power_draw_w < 0:  # Regen/charging
+            regen_voltage = open_circuit_voltage - (desired_current * self.internal_resistance)
+            if regen_voltage > self.max_voltage:
+                # Limit regen current to prevent overvoltage
+                max_regen_current = (self.max_voltage - open_circuit_voltage) / self.internal_resistance
+                actual_current = max(max_regen_current, desired_current)  # max_regen_current is negative
+                actual_power = actual_current * open_circuit_voltage
+        
+        # Energy consumption with multiplier (only for discharge, not regen)
+        if actual_power > 0:
+            energy_delta_j = actual_power * timestep * self.energy_consumption_multiplier
+        else:
+            energy_delta_j = actual_power * timestep  # Regen doesn't get multiplier
         self.energy_used_j += energy_delta_j
         
-        # Calculate discharge current (I = P/V)
-        self.current_discharge_a = power_draw_w / self.pack_voltage if self.pack_voltage > 0 else 0
+        # Store actual current
+        self.current_discharge_a = actual_current
         
         # C-rate calculation (current relative to capacity)
         self.c_rate = self.current_discharge_a / self.total_capacity_ah if self.total_capacity_ah > 0 else 0
         
         # Voltage sag due to internal resistance (V_sag = I * R)
-        self.voltage_sag = self.current_discharge_a * self.internal_resistance
+        self.voltage_sag = abs(self.current_discharge_a) * self.internal_resistance
         
         # Pack voltage accounting for SoC and voltage sag
-        soc = self.get_soc_percent() / 100.0
-        # Linear voltage model: V = V_min + (V_max - V_min) * SoC
-        self.pack_voltage = self.min_voltage + (self.max_voltage - self.min_voltage) * soc - self.voltage_sag
-        self.pack_voltage = max(self.pack_voltage, self.min_voltage)  # Floor at minimum
+        if actual_current >= 0:  # Discharge
+            self.pack_voltage = open_circuit_voltage - self.voltage_sag
+        else:  # Regen/charge
+            self.pack_voltage = open_circuit_voltage + self.voltage_sag
+        
+        # Enforce hard voltage limits
+        self.pack_voltage = max(min(self.pack_voltage, self.max_voltage), self.min_voltage)
         
         # Power loss due to internal resistance (P_loss = I²R)
         self.power_loss_w = (self.current_discharge_a ** 2) * self.internal_resistance
@@ -146,15 +176,38 @@ class Vehicle:
         return (self.RL_drivetrain.motor.power + self.RR_drivetrain.motor.power + 
                 self.FL_drivetrain.motor.power + self.FR_drivetrain.motor.power)
 
-# Vehicle
+# Load Vehicle Configuration
 vehicle_json_file = "vehicles/"+ input('Vehicle JSON file: ')
-with open(vehicle_json_file, "r") as read_file:
-    vehicle_parameters = json.load(read_file)
+try:
+    with open(vehicle_json_file, "r") as read_file:
+        vehicle_parameters = json.load(read_file)
+except FileNotFoundError:
+    print(f"ERROR: Vehicle file '{vehicle_json_file}' not found!")
+    exit(1)
+except json.JSONDecodeError as e:
+    print(f"ERROR: Invalid JSON in vehicle file: {e}")
+    exit(1)
     
 vehicle = Vehicle(vehicle_parameters)
 
-# Accumulator setup
-accu_params = vehicle_parameters["accumulator"]
+# Load Accumulator Configuration
+accumulator_json_file = "accumulators/"+ input('Accumulator JSON file: ')
+try:
+    with open(accumulator_json_file, "r") as read_file:
+        content = read_file.read()
+        if not content.strip():
+            print(f"ERROR: Accumulator file '{accumulator_json_file}' is empty!")
+            exit(1)
+        accu_params = json.loads(content)
+except FileNotFoundError:
+    print(f"ERROR: Accumulator file '{accumulator_json_file}' not found!")
+    print("Make sure you have created the 'accumulators/' folder and added your JSON file.")
+    exit(1)
+except json.JSONDecodeError as e:
+    print(f"ERROR: Invalid JSON in accumulator file: {e}")
+    print("Check that your JSON file has proper formatting (quotes, commas, braces)")
+    exit(1)
+
 NUM_LAPS = int(accu_params["num_laps"])
 accumulator = Accumulator(accu_params, NUM_LAPS)
 
@@ -182,6 +235,7 @@ current_lap = 1
 
 # Sim Loop
 print(f"\n=== Starting {NUM_LAPS}-Lap Endurance Simulation ===")
+print(f"Vehicle: {vehicle_parameters['name']}")
 print(f"Accumulator: {accumulator.total_capacity_wh}Wh @ {accumulator.nominal_voltage}V")
 print(f"Configuration: {accumulator.num_series}S{accumulator.num_parallel}P ({accumulator.total_cells} cells)")
 print(f"Internal Resistance: {accumulator.internal_resistance}Ω")

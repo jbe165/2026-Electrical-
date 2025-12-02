@@ -1,0 +1,14 @@
+{
+    "nominal_voltage": "",
+    "max_voltage": "",
+    "min_voltage": "",
+    "min_voltage_ams_fault": "",
+    "total_capacity_wh": "",
+    "max_current": "",
+    "max_power": "",
+    "total_mass": "",
+    "num_series": "",
+    "num_parallel": "",
+    "internal_resistance": "",
+    "num_laps": ""
+}
