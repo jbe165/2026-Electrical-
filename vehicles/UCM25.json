@@ -1,6 +1,6 @@
 {
     "name": "UCM25",
-    "mass": "700",
+    "mass": "300",
     "FL_drivetrain": {
         "gear_ratio": "12",
         "power_limit": "20000",
