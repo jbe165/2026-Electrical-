@@ -1,0 +1,32 @@
+{
+    "name": "UCM21",
+    "mass": "280",
+    "FL_drivetrain": {
+        "gear_ratio": "9.5",
+        "power_limit": "10000",
+        "regen_limit": "0"
+    },
+    "FR_drivetrain": {
+        "gear_ratio": "9.5",
+        "power_limit": "10000",
+        "regen_limit": "0"
+    },
+    "RL_drivetrain": {
+        "gear_ratio": "9.5",
+        "power_limit": "30000",
+        "regen_limit": "5000"
+    },
+    "RR_drivetrain": {
+        "gear_ratio": "9.5",
+        "power_limit": "30000",
+        "regen_limit": "5000"
+    },
+    "dynamic_loading": {
+        "cg_height": "0.3",
+        "wheel_base": "2.4"
+    },
+    "aerodynamics":{
+        "cd": "0.5",
+        "front_area": "0.2"
+    }
+}

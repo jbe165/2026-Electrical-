@@ -1,0 +1,46 @@
+{
+    "name": "UCM25",
+    "mass": "280",
+    "accumulator": {
+        "nominal_voltage": "530.4",
+        "max_voltage": "600",
+        "min_voltage": "330",
+        "min_voltage_ams_fault": "369.6",
+        "total_capacity_wh": "7080",
+        "max_current": "186",
+        "max_power": "80",
+        "total_mass": "25.08",
+        "num_series": "132",
+        "num_parallel": "2",
+        "internal_resistance": "0.4224",
+        "num_laps": "18"
+    },
+    "FL_drivetrain": {
+        "gear_ratio": "12",
+        "power_limit": "00",
+        "regen_limit": "0"
+    },
+    "FR_drivetrain": {
+        "gear_ratio": "12",
+        "power_limit": "000",
+        "regen_limit": "0"
+    },
+    "RL_drivetrain": {
+        "gear_ratio": "12",
+        "power_limit": "20000",
+        "regen_limit": "0"
+    },
+    "RR_drivetrain": {
+        "gear_ratio": "12",
+        "power_limit": "20000",
+        "regen_limit": "0"
+    },
+    "dynamic_loading": {
+        "cg_height": "0.3",
+        "wheel_base": "2.4"
+    },
+    "aerodynamics": {
+        "cd": "0.2",
+        "front_area": "0.15"
+    }
+}

@@ -1,0 +1,28 @@
+{
+    "name": "Auckland",
+    "mass": "220",
+    "FL_drivetrain": {
+        "gear_ratio": "12",
+        "power_limit": "10000"
+    },
+    "FR_drivetrain": {
+        "gear_ratio": "12",
+        "power_limit": "10000"
+    },
+    "RL_drivetrain": {
+        "gear_ratio": "12",
+        "power_limit": "30000"
+    },
+    "RR_drivetrain": {
+        "gear_ratio": "12",
+        "power_limit": "30000"
+    },
+    "dynamic_loading": {
+        "cg_height": "0.3",
+        "wheel_base": "2.4"
+    },
+    "aerodynamics":{
+        "cd": "0.5",
+        "front_area": "0.2"
+    }
+}
