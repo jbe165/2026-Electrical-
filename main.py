@@ -11,6 +11,12 @@ timestep = 0.0001
 sim_time = 0
 time_incriment = 0
 
+def load_accumulator_config(accu_config_name):
+    """Load accumulator configuration from JSON file"""
+    accu_file = f"accumulators/{accu_config_name}.json"
+    with open(accu_file, 'r') as f:
+        return json.load(f)
+
 class Accumulator:
     """Battery pack with capacity tracking, thermal modeling, and voltage dynamics"""
     def __init__(self, accu_params, num_laps=18):
@@ -153,8 +159,17 @@ with open(vehicle_json_file, "r") as read_file:
     
 vehicle = Vehicle(vehicle_parameters)
 
-# Accumulator setup
-accu_params = vehicle_parameters["accumulator"]
+# Accumulator setup - check if it's a reference or embedded data
+if "accumulator_config" in vehicle_parameters:
+    # Load from separate file
+    accu_config_name = vehicle_parameters["accumulator_config"]
+    accu_params = load_accumulator_config(accu_config_name)
+elif "accumulator" in vehicle_parameters:
+    # Use embedded accumulator data
+    accu_params = vehicle_parameters["accumulator"]
+else:
+    raise ValueError("No accumulator configuration found in vehicle file")
+
 NUM_LAPS = int(accu_params["num_laps"])
 accumulator = Accumulator(accu_params, NUM_LAPS)
 

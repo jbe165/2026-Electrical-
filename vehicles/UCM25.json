@@ -1,14 +1,15 @@
 {
     "name": "UCM25",
-    "mass": "700",
+    "mass": "280",
+    "accumulator_config": "UCM2X_pack",
     "FL_drivetrain": {
         "gear_ratio": "12",
-        "power_limit": "20000",
+        "power_limit": "00",
         "regen_limit": "0"
     },
     "FR_drivetrain": {
         "gear_ratio": "12",
-        "power_limit": "20000",
+        "power_limit": "000",
         "regen_limit": "0"
     },
     "RL_drivetrain": {
@@ -19,7 +20,7 @@
     "RR_drivetrain": {
         "gear_ratio": "12",
         "power_limit": "20000",
-        "regen_limit": " 0"
+        "regen_limit": "0"
     },
     "dynamic_loading": {
         "cg_height": "0.3",
