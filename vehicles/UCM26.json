@@ -1,24 +1,24 @@
 {
-    "name": "UCM24",
-    "mass": "240",
+    "name": "UCM26",
+    "mass": "290",
     "FL_drivetrain": {
         "gear_ratio": "12",
-        "power_limit": "000",
+        "power_limit": "20000",
         "regen_limit": "0"
     },
     "FR_drivetrain": {
         "gear_ratio": "12",
-        "power_limit": "000",
+        "power_limit": "20000",
         "regen_limit": "0"
     },
     "RL_drivetrain": {
         "gear_ratio": "12",
-        "power_limit": "35000",
+        "power_limit": "20000",
         "regen_limit": "000"
     },
     "RR_drivetrain": {
         "gear_ratio": "12",
-        "power_limit": "35000",
+        "power_limit": "20000",
         "regen_limit": "000"
     },
     "dynamic_loading": {
