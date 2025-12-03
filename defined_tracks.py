@@ -149,6 +149,7 @@ class defined_tracks():
     simple_loop = [TrackSegment(5),TrackSegment(None,3,180),TrackSegment(5),TrackSegment(None,3,180)]
     
     acceleration_track = [TrackSegment(75)]
+    
 
     calder_autox = [
         TrackSegment(None, 4.043, 189.9986436),
@@ -257,3 +258,4 @@ class defined_tracks():
         TrackSegment(None, 7.117, 43.81110469),
     ]
 
+    endurance_track = calder_autox * 4 

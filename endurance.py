@@ -206,7 +206,7 @@ except json.JSONDecodeError as e:
 # ...existing code...
 
 accumulator = Accumulator(accu_params)
-track = Track(defined_tracks.calder_autox, vehicle)
+track = Track(defined_tracks.endurance_track, vehicle)
 
 # Ask for number of laps
 num_laps = int(input('Number of laps to simulate: '))
@@ -243,7 +243,7 @@ for lap_num in range(1, num_laps + 1):
     print(f"Starting SoC: {accumulator.get_soc_percent():.1f}%")
     print(f"Starting Temp: {accumulator.cell_temp:.1f}°C")
     
-    # Reset ONLY track and vehicle for new lap (keep accy state)
+    # Reset ONLY track and vehicle for new lap (keep acc state)
     track.reset()
     vehicle.kinematics.velocity = 0
     vehicle.kinematics.acceleration = 0
