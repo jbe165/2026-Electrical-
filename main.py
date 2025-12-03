@@ -364,4 +364,23 @@ plt.grid(True, alpha=0.3)
 plt.legend()
 
 plt.tight_layout()
+
+# Add summary text box in bottom right
+summary_text = (
+    f"Lap Time: {sim_time:.2f}s\n"
+    f"Energy Used: {(energy_consumed-energy_regenerated)/3600000:.2f}kWh\n"
+    f"Final SoC: {accumulator.get_soc_percent():.1f}%\n"
+    f"Energy Remaining: {accumulator.get_energy_remaining_kwh():.2f}kWh\n"
+    f"Peak Discharge: {max(discharge_current):.1f}A\n"
+    f"Max Voltage Sag: {max(voltage_sag):.1f}V\n"
+    f"Min Pack Voltage: {min(pack_voltage):.1f}V\n"
+    f"Peak Regen Power: {max(regen_power_track):.2f}kW"
+)
+
+# Create text box in figure coordinates
+fig1.text(0.5, 0.02, summary_text, transform=fig1.transFigure,
+          fontsize=10, verticalalignment='bottom', horizontalalignment='center',
+          bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8),
+          family='monospace')
+
 plt.show()
