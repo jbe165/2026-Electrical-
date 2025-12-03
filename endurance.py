@@ -12,7 +12,7 @@ sim_time = 0
 
 class Accumulator:
     """Battery pack with capacity tracking, thermal modeling, and voltage dynamics"""
-    def __init__(self, accu_params):
+    def __init__(self, accu_params, initial_soc_percent=100.0, initial_temp=25.0):
         # Electrical parameters
         self.nominal_voltage = float(accu_params["nominal_voltage"])
         self.max_voltage = float(accu_params["max_voltage"])
@@ -31,7 +31,7 @@ class Accumulator:
         self.internal_resistance = float(accu_params["internal_resistance"])
         
         # Thermal parameters
-        self.cell_temp = 25.0  # Start at 25°C ambient
+        self.cell_temp = initial_temp
         self.ambient_temp = 25.0
         self.thermal_mass = self.total_mass * 900  # J/K (specific heat ~900 J/kg/K for Li-ion)
         self.cooling_coefficient = 15.0  # W/K (convective cooling)
@@ -40,7 +40,8 @@ class Accumulator:
         self.energy_consumption_multiplier = 1.5
         self.total_capacity_j = self.total_capacity_wh * 3600
         self.usable_capacity_j = self.total_capacity_j
-        self.energy_used_j = 0
+        # Set initial energy_used based on starting SoC
+        self.energy_used_j = self.usable_capacity_j * (1.0 - initial_soc_percent / 100.0)
         
         # Real-time states
         self.current_discharge_a = 0
@@ -202,166 +203,176 @@ except json.JSONDecodeError as e:
     print("Check that your JSON file has proper formatting (quotes, commas, braces)")
     exit(1)
 
+# ...existing code...
+
 accumulator = Accumulator(accu_params)
 track = Track(defined_tracks.calder_autox, vehicle)
 
-# Plotting arrays
-x = []
-velocity = []
-available_power = []
-actual_power = []
+# Ask for number of laps
+num_laps = int(input('Number of laps to simulate: '))
 
-# Accumulator tracking arrays
-soc_percent = []
-discharge_current = []
-energy_remaining_kwh = []
-pack_voltage = []
-voltage_sag = []
-regen_power_track = []
-total_power_draw = []
-power_loss = []
+# Multi-lap tracking
+all_lap_data = []
+cumulative_time = 0
 
-energy_consumed = 0
-energy_regenerated = 0
-
-# Sim Loop
-print(f"\n=== Starting Lap Simulation ===")
+print(f"\n=== Starting Endurance Simulation ({num_laps} laps) ===")
 print(f"Vehicle: {vehicle_parameters['name']}")
 print(f"Accumulator: {accumulator.total_capacity_wh}Wh @ {accumulator.nominal_voltage}V")
 print(f"Configuration: {accumulator.num_series}S{accumulator.num_parallel}P ({accumulator.total_cells} cells)")
-print(f"Internal Resistance: {accumulator.internal_resistance}Ω")
-print(f"Max Current: {accumulator.max_current}A, Max Power: {accumulator.max_power/1000}kW")
-print(f"Energy consumption multiplier: 1.5x (conservative estimate)\n")
+print(f"Internal Resistance: {accumulator.internal_resistance}Ω\n")
 
-while(track.is_driving()):
-    vehicle.update(track.drive(vehicle, timestep))
-
-    sim_time += timestep
+for lap_num in range(1, num_laps + 1):
+    # Reset per-lap variables (NOT the accumulator)
+    sim_time = 0
+    x = []
+    velocity = []
+    available_power = []
+    actual_power = []
+    soc_percent = []
+    discharge_current = []
+    energy_remaining_kwh = []
+    pack_voltage = []
+    voltage_sag = []
+    regen_power_track = []
+    total_power_draw = []
+    power_loss = []
+    energy_consumed = 0
+    energy_regenerated = 0
     
-    # Power and energy calculations
-    total_power = vehicle.get_total_power()
-    energy_consumed += total_power * timestep  # joules
+    print(f"--- Lap {lap_num} ---")
+    print(f"Starting SoC: {accumulator.get_soc_percent():.1f}%")
+    print(f"Starting Temp: {accumulator.cell_temp:.1f}°C")
     
-    regen_power = (vehicle.RL_drivetrain.regen_power + vehicle.RR_drivetrain.regen_power + 
-                   vehicle.FL_drivetrain.regen_power + vehicle.FR_drivetrain.regen_power)
-    energy_regenerated += regen_power * timestep  # joules
+    # Reset ONLY track and vehicle for new lap (keep accumulator state)
+    track.reset()
+    vehicle.kinematics.velocity = 0
+    vehicle.kinematics.acceleration = 0
     
-    # Update accumulator
-    net_power = total_power - regen_power
-    accumulator.update(net_power, timestep)
+    # Sim loop for this lap
+    while track.is_driving():
+        vehicle.update(track.drive(vehicle, timestep))
+        sim_time += timestep
+        
+        # Power and energy calculations
+        total_power = vehicle.get_total_power()
+        energy_consumed += total_power * timestep
+        
+        regen_power = (vehicle.RL_drivetrain.regen_power + vehicle.RR_drivetrain.regen_power + 
+                       vehicle.FL_drivetrain.regen_power + vehicle.FR_drivetrain.regen_power)
+        energy_regenerated += regen_power * timestep
+        
+        # Update accumulator (persistent across laps)
+        net_power = total_power - regen_power
+        accumulator.update(net_power, timestep)
+        
+        # Data logging
+        x.append(cumulative_time + sim_time)
+        velocity.append(vehicle.kinematics.velocity)
+        
+        # Power data
+        max_available_power = (float(vehicle_parameters["FL_drivetrain"]["power_limit"]) + 
+                              float(vehicle_parameters["FR_drivetrain"]["power_limit"]) + 
+                              float(vehicle_parameters["RL_drivetrain"]["power_limit"]) + 
+                              float(vehicle_parameters["RR_drivetrain"]["power_limit"]))
+        available_power.append(max_available_power / 1000)
+        actual_power.append(total_power / 1000)
+        
+        # Accumulator data
+        soc_percent.append(accumulator.get_soc_percent())
+        discharge_current.append(accumulator.current_discharge_a)
+        energy_remaining_kwh.append(accumulator.get_energy_remaining_kwh())
+        pack_voltage.append(accumulator.pack_voltage)
+        voltage_sag.append(accumulator.voltage_sag)
+        regen_power_track.append(regen_power / 1000)
+        total_power_draw.append(total_power / 1000)
+        power_loss.append(accumulator.power_loss_w / 1000)
     
-    # Data logging
-    x.append(sim_time)
-    velocity.append(vehicle.kinematics.velocity)
+    # Lap results
+    lap_energy_used = (energy_consumed - energy_regenerated) / 3600000
+    lap_soc_final = accumulator.get_soc_percent()
+    lap_temp_final = accumulator.cell_temp
+    lap_min_voltage = min(pack_voltage)
     
-    # Power data
-    max_available_power = (float(vehicle_parameters["FL_drivetrain"]["power_limit"]) + 
-                          float(vehicle_parameters["FR_drivetrain"]["power_limit"]) + 
-                          float(vehicle_parameters["RL_drivetrain"]["power_limit"]) + 
-                          float(vehicle_parameters["RR_drivetrain"]["power_limit"]))
-    available_power.append(max_available_power / 1000)
-    actual_power.append(total_power / 1000)
+    print(f"Lap Time: {sim_time:.2f}s")
+    print(f"Energy Used: {lap_energy_used:.2f}kWh")
+    print(f"Final SoC: {lap_soc_final:.1f}%")
+    print(f"Final Temp: {lap_temp_final:.1f}°C")
+    print(f"Min Pack Voltage: {lap_min_voltage:.1f}V\n")
     
-    # Accumulator data
-    soc_percent.append(accumulator.get_soc_percent())
-    discharge_current.append(accumulator.current_discharge_a)
-    energy_remaining_kwh.append(accumulator.get_energy_remaining_kwh())
-    pack_voltage.append(accumulator.pack_voltage)
-    voltage_sag.append(accumulator.voltage_sag)
-    regen_power_track.append(regen_power / 1000)  # Convert to kW
-    total_power_draw.append(total_power / 1000)
-    power_loss.append(accumulator.power_loss_w / 1000)  # Convert to kW
+    # Store lap data
+    all_lap_data.append({
+        'lap': lap_num,
+        'x': x,
+        'velocity': velocity,
+        'soc': soc_percent,
+        'pack_voltage': pack_voltage,
+        'current': discharge_current,
+        'energy_remaining': energy_remaining_kwh,
+        'energy_used_kwh': lap_energy_used,
+        'final_soc': lap_soc_final,
+        'final_temp': lap_temp_final,
+        'min_voltage': lap_min_voltage
+    })
+    
+    cumulative_time += sim_time
+    
+    # Check if battery is critically low
+    if accumulator.get_soc_percent() < 5:
+        print(f"WARNING: Battery critically low at {accumulator.get_soc_percent():.1f}% - stopping simulation")
+        break
 
-# Results
-print("\n=== Lap Complete ===")
-print(f"Lap Time: {sim_time:.2f}s")
-print(f"\nEnergy Consumed: {energy_consumed/1000000:.2f}MJ ({energy_consumed/3600000:.2f}kWh)")
-print(f"Energy Regenerated: {energy_regenerated/1000000:.2f}MJ ({energy_regenerated/3600000:.2f}kWh)")
-print(f"Net Energy Used: {(energy_consumed-energy_regenerated)/3600000:.2f}kWh")
-print(f"\nFinal State of Charge: {accumulator.get_soc_percent():.1f}%")
-print(f"Energy Remaining: {accumulator.get_energy_remaining_kwh():.2f}kWh")
-print(f"Peak Discharge Current: {max(discharge_current):.1f}A")
-print(f"Max Voltage Sag: {max(voltage_sag):.1f}V")
-print(f"Min Pack Voltage: {min(pack_voltage):.1f}V")
-print(f"Peak Regen Power: {max(regen_power_track):.2f}kW")
+# ...existing code...
 
-# Plotting
-fig1 = plt.figure(figsize=(16, 12))
+# Print summary table of all laps
+print(f"\n=== Lap Summary ===")
+print(f"{'Lap':<5} {'Energy (kWh)':<15} {'Final SoC (%)':<15} {'Final Temp (°C)':<15} {'Min Voltage (V)':<15}")
+print("-" * 65)
+for lap_data in all_lap_data:
+    print(f"{lap_data['lap']:<5} {lap_data['energy_used_kwh']:<15.2f} {lap_data['final_soc']:<15.1f} {lap_data['final_temp']:<15.1f} {lap_data['min_voltage']:<15.1f}")
 
-# Velocity
-plt.subplot(4, 2, 1)
-plt.title(f'{vehicle_parameters["name"]} - Velocity Profile')
-plt.xlabel("Time (s)")
-plt.ylabel("Velocity (m/s)")
-plt.plot(x, velocity, '-b', linewidth=0.8)
-plt.grid(True, alpha=0.3)
+# Print summary table of all laps
+print(f"\n=== Lap Summary ===")
+print(f"{'Lap':<5} {'Energy (kWh)':<15} {'Final SoC (%)':<15} {'Final Temp (°C)':<15} {'Min Voltage (V)':<15}")
+print("-" * 65)
+for lap_data in all_lap_data:
+    print(f"{lap_data['lap']:<5} {lap_data['energy_used_kwh']:<15.2f} {lap_data['final_soc']:<15.1f} {lap_data['final_temp']:<15.1f} {lap_data['min_voltage']:<15.1f}")
 
-# State of Charge
-plt.subplot(4, 2, 2)
-plt.title('Accumulator State of Charge')
-plt.xlabel("Time (s)")
-plt.ylabel("SoC (%)")
-plt.plot(x, soc_percent, '-r', linewidth=1.2)
-plt.axhline(y=0, color='k', linestyle='--', alpha=0.5, label='Empty')
-plt.axhline(y=100, color='g', linestyle='--', alpha=0.5, label='Full')
-plt.grid(True, alpha=0.3)
-plt.legend()
+# Plotting all laps
+fig, axes = plt.subplots(2, 2, figsize=(16, 10))
 
-# Pack Voltage
-plt.subplot(4, 2, 3)
-plt.title('Pack Voltage')
-plt.xlabel("Time (s)")
-plt.ylabel("Voltage (V)")
-plt.plot(x, pack_voltage, color='blue', linewidth=1.0)
-plt.axhline(y=accumulator.min_voltage_ams_fault, color='r', linestyle='--', alpha=0.5, label='AMS Fault')
-plt.axhline(y=accumulator.nominal_voltage, color='g', linestyle='--', alpha=0.5, label='Nominal')
-plt.grid(True, alpha=0.3)
-plt.legend()
+for lap_data in all_lap_data:
+    lap_num = lap_data['lap']
+    axes[0, 0].plot(lap_data['x'], lap_data['velocity'], label=f'Lap {lap_num}', linewidth=0.8)
+    axes[0, 1].plot(lap_data['x'], lap_data['soc'], label=f'Lap {lap_num}', linewidth=0.8)
+    axes[1, 0].plot(lap_data['x'], lap_data['pack_voltage'], label=f'Lap {lap_num}', linewidth=0.8)
+    axes[1, 1].plot(lap_data['x'], lap_data['energy_remaining'], label=f'Lap {lap_num}', linewidth=0.8)
 
-# Voltage Sag
-plt.subplot(4, 2, 4)
-plt.title('Voltage Sag (I×R)')
-plt.xlabel("Time (s)")
-plt.ylabel("Voltage Drop (V)")
-plt.plot(x, voltage_sag, color='orange', linewidth=0.8)
-plt.grid(True, alpha=0.3)
+axes[0, 0].set_title('Velocity Profile')
+axes[0, 0].set_xlabel('Time (s)')
+axes[0, 0].set_ylabel('Velocity (m/s)')
+axes[0, 0].grid(True, alpha=0.3)
+axes[0, 0].legend()
 
-# Discharge Current
-plt.subplot(4, 2, 5)
-plt.title('Discharge Current')
-plt.xlabel("Time (s)")
-plt.ylabel("Current (A)")
-plt.plot(x, discharge_current, color='purple', linewidth=0.8)
-plt.axhline(y=accumulator.max_current, color='r', linestyle='--', alpha=0.5, label='Max Current')
-plt.grid(True, alpha=0.3)
-plt.legend()
+axes[0, 1].set_title('State of Charge')
+axes[0, 1].set_xlabel('Time (s)')
+axes[0, 1].set_ylabel('SoC (%)')
+axes[0, 1].axhline(y=0, color='k', linestyle='--', alpha=0.3)
+axes[0, 1].axhline(y=100, color='g', linestyle='--', alpha=0.3)
+axes[0, 1].grid(True, alpha=0.3)
+axes[0, 1].legend()
 
-# Energy Remaining
-plt.subplot(4, 2, 6)
-plt.title('Energy Remaining')
-plt.xlabel("Time (s)")
-plt.ylabel("Energy (kWh)")
-plt.plot(x, energy_remaining_kwh, color='magenta', linewidth=1.2)
-plt.grid(True, alpha=0.3)
+axes[1, 0].set_title('Pack Voltage')
+axes[1, 0].set_xlabel('Time (s)')
+axes[1, 0].set_ylabel('Voltage (V)')
+axes[1, 0].axhline(y=accumulator.min_voltage_ams_fault, color='r', linestyle='--', alpha=0.3, label='AMS Fault')
+axes[1, 0].grid(True, alpha=0.3)
+axes[1, 0].legend()
 
-# Regenerative Braking Power
-plt.subplot(4, 2, 7)
-plt.title('Regenerative Braking Power')
-plt.xlabel("Time (s)")
-plt.ylabel("Regen Power (kW)")
-plt.plot(x, regen_power_track, color='green', linewidth=0.8)
-plt.fill_between(x, 0, regen_power_track, color='green', alpha=0.3)
-plt.grid(True, alpha=0.3)
-
-# Power: Available vs Actual
-plt.subplot(4, 2, 8)
-plt.title('Power: Available vs Actual Usage')
-plt.xlabel("Time (s)")
-plt.ylabel("Power (kW)")
-plt.plot(x, available_power, '--', color='gray', linewidth=1.0, label='Available', alpha=0.7)
-plt.plot(x, actual_power, '-', color='blue', linewidth=0.8, label='Actual Used')
-plt.grid(True, alpha=0.3)
-plt.legend()
+axes[1, 1].set_title('Energy Remaining')
+axes[1, 1].set_xlabel('Time (s)')
+axes[1, 1].set_ylabel('Energy (kWh)')
+axes[1, 1].grid(True, alpha=0.3)
+axes[1, 1].legend()
 
 plt.tight_layout()
 plt.show()

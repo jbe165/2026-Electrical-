@@ -15,6 +15,17 @@ class Track:
             if i > 0:
                 self.track_segment[i-1].exit_velocity = self.track_segment[i].velocity_limit
 
+    def reset(self):
+        """Reset track state for a new lap"""
+        self.current_segment_index = 0
+        self.segment_markers = []
+        self.step_increment = 0
+        # Reset all track segments
+        for segment in self.track_segment:
+            segment.distance_travelled = 0
+            segment.distance_remaining = segment.length
+            segment.braking = 0
+
     def drive(self, vehicle, timestep):
         drive_value = self.track_segment[self.current_segment_index].drive(vehicle)
 

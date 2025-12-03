@@ -1,0 +1,14 @@
+{
+    "nominal_voltage": "489.6",
+    "max_voltage": "571.2",
+    "min_voltage": "340",
+    "min_voltage_ams_fault": "380.8",
+    "total_capacity_wh": "7200",
+    "max_current": "135",
+    "max_power": "77.11",
+    "total_mass": "28.68",
+    "num_series": "136",
+    "num_parallel": "3",
+    "internal_resistance": "0.476",
+    "num_laps": "18"
+}
