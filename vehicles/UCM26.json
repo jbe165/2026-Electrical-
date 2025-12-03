@@ -4,22 +4,22 @@
     "FL_drivetrain": {
         "gear_ratio": "12",
         "power_limit": "20000",
-        "regen_limit": "0"
+        "regen_limit": "1000"
     },
     "FR_drivetrain": {
         "gear_ratio": "12",
         "power_limit": "20000",
-        "regen_limit": "0"
+        "regen_limit": "1000"
     },
     "RL_drivetrain": {
         "gear_ratio": "12",
         "power_limit": "20000",
-        "regen_limit": "000"
+        "regen_limit": "1000"
     },
     "RR_drivetrain": {
         "gear_ratio": "12",
         "power_limit": "20000",
-        "regen_limit": "000"
+        "regen_limit": "1000"
     },
     "dynamic_loading": {
         "cg_height": "0.3",

@@ -203,8 +203,6 @@ except json.JSONDecodeError as e:
     print("Check that your JSON file has proper formatting (quotes, commas, braces)")
     exit(1)
 
-# ...existing code...
-
 accumulator = Accumulator(accu_params)
 track = Track(defined_tracks.endurance_track, vehicle)
 
