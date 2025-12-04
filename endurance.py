@@ -149,15 +149,17 @@ class Vehicle:
         self.producable_grip_force = 1
         self.drag_force = 0
         
-        self.update(0)
+        # Pass nominal voltage from first parameter or default
+        nominal_voltage = float(vehicle_parameters.get("nominal_voltage", 489.6))
+        self.update(0, nominal_voltage)
         
-    def update(self, drive):
+    def update(self, drive, pack_voltage):
         self.dynamic_loading.update(self.longitudinal_force)
         self.aerodynamics.update(self.kinematics.velocity)
-        self.FL_drivetrain.update(self.kinematics.velocity, self.dynamic_loading.FL_z, drive)
-        self.FR_drivetrain.update(self.kinematics.velocity, self.dynamic_loading.FR_z, drive)
-        self.RL_drivetrain.update(self.kinematics.velocity, self.dynamic_loading.RL_z, drive)
-        self.RR_drivetrain.update(self.kinematics.velocity, self.dynamic_loading.RR_z, drive)
+        self.FL_drivetrain.update(self.kinematics.velocity, self.dynamic_loading.FL_z, drive, pack_voltage)
+        self.FR_drivetrain.update(self.kinematics.velocity, self.dynamic_loading.FR_z, drive, pack_voltage)
+        self.RL_drivetrain.update(self.kinematics.velocity, self.dynamic_loading.RL_z, drive, pack_voltage)
+        self.RR_drivetrain.update(self.kinematics.velocity, self.dynamic_loading.RR_z, drive, pack_voltage)
 
         self.vehicle_tractive_force = self.FL_drivetrain.tyre.tractive_force + self.FR_drivetrain.tyre.tractive_force + self.RL_drivetrain.tyre.tractive_force + self.RR_drivetrain.tyre.tractive_force
         self.longitudinal_force = self.vehicle_tractive_force - self.aerodynamics.drag_force
@@ -204,7 +206,7 @@ except json.JSONDecodeError as e:
     exit(1)
 
 accumulator = Accumulator(accu_params)
-track = Track(defined_tracks.endurance_track, vehicle)
+track = Track(defined_tracks.calder_autox, vehicle)
 
 # Ask for number of laps
 num_laps = int(input('Number of laps to simulate: '))
@@ -248,20 +250,24 @@ for lap_num in range(1, num_laps + 1):
     
     # Sim loop for this lap
     while track.is_driving():
-        vehicle.update(track.drive(vehicle, timestep))
+        # Update accumulator FIRST to get current pack voltage
+        total_power_estimate = vehicle.get_total_power()  # Get last frame's power
+        regen_power_estimate = (vehicle.RL_drivetrain.regen_power + vehicle.RR_drivetrain.regen_power + 
+                               vehicle.FL_drivetrain.regen_power + vehicle.FR_drivetrain.regen_power)
+        net_power_estimate = total_power_estimate - regen_power_estimate
+        accumulator.update(net_power_estimate, timestep)
+        
+        # NOW update vehicle with current pack voltage
+        vehicle.update(track.drive(vehicle, timestep), accumulator.pack_voltage)
         sim_time += timestep
         
-        # Power and energy calculations
+        # Power and energy calculations (for next iteration)
         total_power = vehicle.get_total_power()
         energy_consumed += total_power * timestep
         
         regen_power = (vehicle.RL_drivetrain.regen_power + vehicle.RR_drivetrain.regen_power + 
                        vehicle.FL_drivetrain.regen_power + vehicle.FR_drivetrain.regen_power)
         energy_regenerated += regen_power * timestep
-        
-        # Update accumulator (persistent across laps)
-        net_power = total_power - regen_power
-        accumulator.update(net_power, timestep)
         
         # Data logging
         x.append(cumulative_time + sim_time)
@@ -318,8 +324,6 @@ for lap_num in range(1, num_laps + 1):
     if accumulator.get_soc_percent() < 5:
         print(f"WARNING: Battery critically low at {accumulator.get_soc_percent():.1f}% - stopping simulation")
         break
-
-# ...existing code...
 
 # Print summary table of all laps
 print(f"\n=== Lap Summary ===")

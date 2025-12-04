@@ -108,10 +108,19 @@ class Drivetrain:
         self.tyre = TyreClass()
         self.gearbox = GearboxClass(float(drivetrain_parameters["gear_ratio"]))
         self.motor = MotorClass(float(drivetrain_parameters["power_limit"]))
+        self.max_current = float(drivetrain_parameters.get("max_current", 200))  # Add to JSON if missing
         self.regen_limit = float(drivetrain_parameters["regen_limit"])
         self.regen_power = 0
 
-    def update(self, vehicle_velocity, fz=0, drive=1):
+    def update(self, vehicle_velocity, fz=0, drive=1, pack_voltage=489.6):
+        # Calculate voltage-limited power
+        max_power_from_voltage = pack_voltage * self.max_current if pack_voltage > 0 else self.motor.power_limit
+        
+        # Reduce power limit if voltage is low
+        voltage_derated_power = min(self.motor.power_limit, max_power_from_voltage)
+        original_power_limit = self.motor.power_limit
+        self.motor.power_limit = voltage_derated_power
+        
         if drive > 0:
             # On Throttle
             motor_torque_request = drive * self.gearbox.torque_wheel_to_motor(self.tyre.produceable_grip_torque)
@@ -132,13 +141,12 @@ class Drivetrain:
         
         # Update tyre object, setting torque
         tyre_driving_torque = self.gearbox.torque_motor_to_wheel(self.motor.torque)
-        self.tyre.update(vehicle_velocity,fz,tyre_driving_torque,tyre_braking_torque) 
+        self.tyre.update(vehicle_velocity, fz, tyre_driving_torque, tyre_braking_torque) 
         
         # Calculate Braking Power
         self.regen_power = -tyre_braking_torque * self.tyre.radial_velocity
         if self.regen_power > self.regen_limit:
             self.regen_power = self.regen_limit
         
-        # Gear Changing
-        # if self.motor.producable_torque < 3:
-        #     self.gearbox.gear_ratio = 1/5
+        # Restore original power limit for next iteration
+        self.motor.power_limit = original_power_limit
