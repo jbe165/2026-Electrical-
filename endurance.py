@@ -222,7 +222,7 @@ print(f"Configuration: {accumulator.num_series}S{accumulator.num_parallel}P ({ac
 print(f"Internal Resistance: {accumulator.internal_resistance}Ω\n")
 
 for lap_num in range(1, num_laps + 1):
-    # Reset per-lap variables (NOT the accy)
+    # Reset per-lap variables (NOT the accumulator)
     sim_time = 0
     x = []
     velocity = []
@@ -243,7 +243,7 @@ for lap_num in range(1, num_laps + 1):
     print(f"Starting SoC: {accumulator.get_soc_percent():.1f}%")
     print(f"Starting Temp: {accumulator.cell_temp:.1f}°C")
     
-    # Reset ONLY track and vehicle for new lap (keep acc state)
+    # Reset ONLY track and vehicle for new lap (keep accy state)
     track.reset()
     vehicle.kinematics.velocity = 0
     vehicle.kinematics.acceleration = 0
